@@ -255,7 +255,7 @@
             </div>
         </div>
         <div class="rack-status-ticker text-xs bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 px-3 py-1.5 rounded-full font-mono">
-            <div id="rackStatusTicker" class="rack-status-track">Current Rack Size: --U - ---W x ---D x ---H MM • Guest SW: 0 • Security SW: 0 • BOH SW: 0 • Patch Panel: 0 • Cable Mgmt: 0 • FDU: 0 • Gateway: 0U • Firewall: 0U • NVR: 0U • UPS: 0U</div>
+            <div id="rackStatusTicker" class="rack-status-track">Current Rack Size: --U - ---W x ---D x ---H MM • Guest SW: 0 • Security SW: 0 • BOH SW: 0 • Patch Panel: 0 • Cable Mgmt: 0 • FDU: 0U • Gateway: 0U • Firewall: 0U • NVR: 0U • UPS/PDU: 0U</div>
         </div>
     </header>
 
@@ -414,14 +414,11 @@
                             </div>
                             <div class="min-w-0 leading-tight">
                                 <span class="block text-sm text-gray-300 font-medium">UPS</span>
-                                <span class="block text-[10px] text-rose-300 mt-1">5U · Fixed Bottom</span>
+                                <span class="block text-[10px] text-rose-300 mt-1">3U · UPS 2U + PDU 1U</span>
                             </div>
                         </label>
                     </div>
 
-                    <div class="grid grid-cols-1 gap-2 text-xs text-gray-400 font-mono">
-                        <div class="bg-black/20 p-2 rounded border border-white/5">✓ Rack PDU (Rear Mounted / No Front U Space)</div>
-                    </div>
                 </div>
             </div>
 
@@ -445,7 +442,7 @@
                         <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
                         <div>
                             <h3 class="text-sm font-semibold text-gray-200">Rack Layout</h3>
-                            <p class="text-[10px] text-gray-500 mt-0.5">FDU at the top → Patch Panel / Cable Management / Switch → Selected Firewall / Gateway → Empty Space → UPS Reserved 5U at the bottom</p>
+                            <p class="text-[10px] text-gray-500 mt-0.5">Rack Top Clear 1U → FDU → FDU Bottom Clear 1U → Patch Panel / Cable Management / Switch → Selected Firewall / Gateway → NVR → Empty Space → UPS 2U + PDU 1U → Rack Bottom Clear 1U</p>
                         </div>
                     </div>
                 </div>
@@ -480,7 +477,7 @@
                                 <div class="flex justify-between gap-4"><span class="text-gray-400">Gateway Reserved:</span><span id="sumGateway" class="font-medium">0U</span></div>
                                 <div class="flex justify-between gap-4"><span class="text-gray-400">Firewall Reserved:</span><span id="sumFirewall" class="font-medium">0U</span></div>
                                 <div class="flex justify-between gap-4"><span class="text-gray-400">NVR:</span><span id="sumNVR" class="font-medium">0U</span></div>
-                                <div class="flex justify-between gap-4"><span class="text-gray-400">UPS:</span><span id="sumUPS" class="font-medium text-red-300 text-right">5U Reserved · UPS 2,000VA</span></div>
+                                <div class="flex justify-between gap-4"><span class="text-gray-400">UPS/PDU:</span><span id="sumUPS" class="font-medium text-red-300 text-right">3U · UPS 2U + PDU 1U</span></div>
                             </div>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 border-t border-white/10 pt-3 mt-3">
                                 <div class="flex justify-between gap-4 font-semibold text-sm"><span>Net Used Space:</span><span id="sumTotalU" class="text-white">0U</span></div>
@@ -526,14 +523,14 @@
             <div class="legend-chip"><span class="w-2.5 h-2.5 bg-emerald-500 rounded"></span>BOH Network</div>
             <div class="legend-chip"><span class="w-2.5 h-2.5 bg-orange-500 rounded"></span>Firewall / Gateway</div>
             <div class="legend-chip"><span class="w-2.5 h-2.5 bg-blue-600 rounded"></span>NVR</div>
-            <div class="legend-chip"><span class="w-2.5 h-2.5 bg-red-500 rounded"></span>UPS (Bottom)</div>
+            <div class="legend-chip"><span class="w-2.5 h-2.5 bg-red-500 rounded"></span>UPS + PDU (Bottom)</div>
             <div class="legend-chip"><span class="w-2.5 h-2.5 border border-dashed border-cyan-400/50 rounded"></span>Empty Space / Expansion</div>
         </div>
     </section>
 </div>
 
 <script>
-    const standardRackSizes = [6, 9, 12, 15, 18, 22, 27, 36, 42];
+    const standardRackSizes = [6, 9, 12, 15, 27, 36, 42];
     const U_HEIGHT_MM = 44.45;
     const defaultPaneZooms = { front: 1, top: 1.6 };
     const paneZooms = { ...defaultPaneZooms };
@@ -603,19 +600,22 @@
         const hasUPS = document.getElementById('hasUPS').checked;
         const hasFDU = document.getElementById('hasFDU').checked;
 
+        const rackTopClearU = 1;
+        const rackBottomClearU = 1;
         const fduUnitU = 1;
         const fduCount = hasFDU ? Math.max(1, Number(document.getElementById('fduCount').value) || 1) : 0;
-        const fduTopClearU = hasFDU ? 1 : 0;
-        const fduBottomClearU = hasFDU ? 2 : 0;
+        const fduTopClearU = 0;
+        const fduBottomClearU = hasFDU ? 1 : 0;
         const fduBodyU = fduCount * fduUnitU;
         const fduU = fduTopClearU + fduBodyU + fduBottomClearU;
         const gatewayU = hasGateway ? 1 : 0;
         const firewallU = hasFirewall ? 1 : 0;
         const nvrU = hasNVR ? 2 : 0;
-        const pduU = 0; // PDU ติดตั้งแนวตั้งด้านหลัง ไม่กินพื้นที่ Front U
-        const upsU = hasUPS ? 5 : 0; // UPS reserved only when enabled
+        const pduU = hasUPS ? 1 : 0;
+        const upsCoreU = hasUPS ? 2 : 0;
+        const upsU = hasUPS ? 3 : 0; // Combined item: UPS 2U + PDU 1U
 
-        const netUsedU = fduU + totalSwitches + totalPatchPanels + totalCableMgmt + gatewayU + firewallU + nvrU + upsU;
+        const netUsedU = rackTopClearU + rackBottomClearU + fduU + totalSwitches + totalPatchPanels + totalCableMgmt + gatewayU + firewallU + nvrU + upsU;
         const bufferU = Math.ceil(netUsedU * 1.30);
 
         let finalRackU = standardRackSizes.find(size => size >= bufferU) || bufferU;
@@ -642,7 +642,7 @@
         document.getElementById('sumGateway').textContent = `${gatewayU}U`;
         document.getElementById('sumFirewall').textContent = `${firewallU}U`;
         document.getElementById('sumNVR').textContent = `${nvrU}U`;
-        document.getElementById('sumUPS').textContent = hasUPS ? '5U Reserved · UPS 2,000VA' : '0U';
+        document.getElementById('sumUPS').textContent = hasUPS ? '3U · UPS 2U + PDU 1U' : '0U';
         document.getElementById('sumTotalU').textContent = `${netUsedU}U`;
         document.getElementById('sumBufferU').textContent = `${bufferU}U`;
 
@@ -650,16 +650,17 @@
         const gatewayLabel = hasGateway ? '1U' : '0U';
         const firewallLabel = hasFirewall ? '1U' : '0U';
         const nvrLabel = hasNVR ? '2U' : '0U';
-        const upsLabel = hasUPS ? '5U' : '0U';
-        const rackStatusText = `Current Rack Size: ${rackSizeLabel} • Guest SW: ${swGuestCount} • Security SW: ${swSecurityCount} • BOH SW: ${swBOHCount} • Patch Panel: ${totalPatchPanels} • Cable Mgmt: ${totalCableMgmt} • FDU: ${fduCount} • Gateway: ${gatewayLabel} • Firewall: ${firewallLabel} • NVR: ${nvrLabel} • UPS: ${upsLabel}`;
+        const upsLabel = hasUPS ? '3U' : '0U';
+        const rackStatusText = `Current Rack Size: ${rackSizeLabel} • Guest SW: ${swGuestCount} • Security SW: ${swSecurityCount} • BOH SW: ${swBOHCount} • Patch Panel: ${totalPatchPanels} • Cable Mgmt: ${totalCableMgmt} • FDU: ${fduU}U • Gateway: ${gatewayLabel} • Firewall: ${firewallLabel} • NVR: ${nvrLabel} • UPS/PDU: ${upsLabel}`;
         document.getElementById('mainRackResult').textContent = rackSizeLabel;
         document.getElementById('rackStatusTicker').textContent = rackStatusText;
 
         renderBlueprints(finalRackU, widthDimension, depthDimension, heightDimensionMM, {
             swGuestCount, swSecurityCount, swBOHCount,
             hasGateway, hasFirewall, hasNVR, hasUPS, hasFDU,
+            rackTopClearU, rackBottomClearU,
             fduCount, fduUnitU, fduBodyU, fduTopClearU, fduBottomClearU, fduU,
-            gatewayU, firewallU, nvrU, pduU, upsU
+            gatewayU, firewallU, nvrU, pduU, upsCoreU, upsU
         });
     }
 
@@ -686,31 +687,37 @@
         /* ลำดับตามแบบอ้างอิงจากบนลงล่าง */
         const topItems = [];
 
-        // 1) Fiber Distribution Unit at the top with fixed clear space: 1U top, body, 2U bottom
-        if (eq.hasFDU && eq.fduTopClearU > 0) {
-            pushMultiU(topItems, 'FDU_CLEAR_TOP', 'FDU Top Clear 1U', '#0b3b52', eq.fduTopClearU);
+        // 1) Reserve rack top clear 1U for every rack
+        if (eq.rackTopClearU > 0) {
+            pushMultiU(topItems, 'RACK_CLEAR_TOP', `Rack Top Clear ${eq.rackTopClearU}U`, '#0f2740', eq.rackTopClearU);
         }
+
+        // 2) FDU at the top: body only + bottom clear 1U
         for (let i = 0; i < eq.fduCount; i++) {
-            pushMultiU(topItems, 'FDU', eq.fduCount > 1 ? `Fiber Distribution Unit ${i + 1}` : 'Fiber Distribution Unit', '#0ea5e9', eq.fduUnitU);
+            pushMultiU(topItems, 'FDU', eq.fduCount > 1 ? `FDU ${i + 1}` : 'FDU', '#0ea5e9', eq.fduUnitU);
         }
         if (eq.hasFDU && eq.fduBottomClearU > 0) {
             pushMultiU(topItems, 'FDU_CLEAR_BOTTOM', `FDU Bottom Clear ${eq.fduBottomClearU}U`, '#0b3b52', eq.fduBottomClearU);
         }
 
-        // 2) อุปกรณ์เครือข่ายเรียงลงมาทีละชุด: Patch Panel → Cable Management → Switch
+        // 3) Network equipment groups: Patch Panel → Cable Management → Switch
         addNetworkGroup(topItems, eq.swGuestCount, 'Guest', { patch:'#6b21a8', cable:'#7e22ce', switch:'#a855f7' });
         addNetworkGroup(topItems, eq.swSecurityCount, 'Security', { patch:'#92400e', cable:'#b45309', switch:'#f59e0b' });
         addNetworkGroup(topItems, eq.swBOHCount, 'BOH', { patch:'#065f46', cable:'#047857', switch:'#10b981' });
 
-        // 3) พื้นที่สำรองตามแบบ: Firewall ก่อน Gateway
+        // 4) Reserved spaces and optional NVR
         if (eq.hasFirewall) topItems.push({ type:'FIREWALL', label:'Space for Firewall (1U)', color:'#f97316' });
         if (eq.hasGateway) topItems.push({ type:'GATEWAY', label:'Space for Gateway (1U)', color:'#fb923c' });
         if (eq.hasNVR) {
             pushMultiU(topItems, 'NVR', 'NVR (2U)', '#2563eb', 2);
         }
-        // PDU อยู่ด้านหลังตู้ จึงไม่วาดเป็นอุปกรณ์ Front Rack
 
-        const usedWithoutEmpty = topItems.length + eq.upsU;
+        const rackBottomItems = [];
+        if (eq.rackBottomClearU > 0) {
+            pushMultiU(rackBottomItems, 'RACK_CLEAR_BOTTOM', `Rack Bottom Clear ${eq.rackBottomClearU}U`, '#0f2740', eq.rackBottomClearU);
+        }
+
+        const usedWithoutEmpty = topItems.length + eq.upsU + rackBottomItems.length;
         const emptySpaceCount = Math.max(0, rackU - usedWithoutEmpty);
         const emptyItems = Array.from({ length: emptySpaceCount }, (_, i) => ({
             type:'EMPTY',
@@ -719,11 +726,11 @@
         }));
         const upsItems = Array.from({ length: eq.upsU }, (_, i) => ({
             type:'UPS',
-            label: i === Math.floor(eq.upsU / 2) ? 'UPS 2,000VA / Reserved 5U' : '',
+            label: i === Math.floor(eq.upsU / 2) ? 'UPS 2U + PDU 1U' : '',
             color:'#ef4444'
         }));
 
-        const renderStack = [...topItems, ...emptyItems, ...upsItems];
+        const renderStack = [...topItems, ...emptyItems, ...upsItems, ...rackBottomItems];
 
         const fWidth = 176;
         const fHeight = Math.max(420, rackU * 18);
