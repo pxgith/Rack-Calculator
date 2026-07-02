@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rack Calculator</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect x=%278%27 y=%2710%27 width=%2738%27 height=%2738%27 rx=%2711%27 fill=%27%23facc15%27 stroke=%27%230f172a%27 stroke-width=%273%27/%3E%3Ccircle cx=%2727%27 cy=%2729%27 r=%279%27 fill=%27%230f172a%27/%3E%3Ccircle cx=%2727%27 cy=%2729%27 r=%274%27 fill=%27%2367e8f9%27/%3E%3Cpath d=%27M39 32h17v11H39z%27 fill=%27%23f8fafc%27 stroke=%27%230f172a%27 stroke-width=%273%27/%3E%3Cpath d=%27M44 32v5M49 32v3M54 32v5%27 stroke=%27%230f172a%27 stroke-width=%272%27/%3E%3Cpath d=%27M56 31v13h4%27 fill=%27none%27 stroke=%27%230f172a%27 stroke-width=%273%27 stroke-linecap=%27round%27/%3E%3C/svg%3E">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root { color-scheme: dark; }
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        input[type="number"]::-webkit-inner-spin-button { opacity: 1; }
+        button, select, input { font: inherit; }
+
+        .app-shell {
+            width: 100%;
+            max-width: 1800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.68);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.10);
+        }
+        .glass-input {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            color: #f8fafc;
+            transition: all 0.2s ease;
+        }
+        .glass-input:focus:not(:disabled) {
+            background: rgba(255, 255, 255, 0.10);
+            border-color: rgba(34, 211, 238, 0.65);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.12);
+        }
+        .glass-input:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+            background: rgba(0, 0, 0, 0.38);
+        }
+
+        /* ทำให้ตัวเลือกใน Dropdown มองเห็นชัดบนทุกเบราว์เซอร์ */
+        select.glass-input {
+            color: #f8fafc !important;
+            background-color: #0f172a !important;
+            color-scheme: dark;
+            -webkit-text-fill-color: #f8fafc;
+        }
+        select.glass-input option,
+        select.glass-input optgroup {
+            background: #0f172a !important;
+            color: #f8fafc !important;
+        }
+        select.glass-input:disabled {
+            color: #94a3b8 !important;
+            -webkit-text-fill-color: #94a3b8;
+        }
+        .select-wrap { position: relative; }
+        .select-wrap::after {
+            content: '▾';
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none;
+            color: #67e8f9;
+            font-size: 12px;
+        }
+
+        /* Toggle Switch */
+        input:checked ~ .dot {
+            transform: translateX(100%);
+            background-color: #22d3ee;
+        }
+        input:checked ~ .glass-toggle {
+            background-color: rgba(34, 211, 238, 0.20);
+            border-color: rgba(34, 211, 238, 0.55);
+        }
+
+        .blueprint-grid {
+            background-image:
+                linear-gradient(rgba(34, 211, 238, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(34, 211, 238, 0.05) 1px, transparent 1px);
+            background-size: 10px 10px;
+            background-color: rgba(15, 23, 42, 0.82);
+        }
+        .blueprint-viewport {
+            overflow: auto;
+            overscroll-behavior: contain;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(34, 211, 238, 0.45) rgba(15, 23, 42, 0.45);
+        }
+        .blueprint-canvas {
+            min-width: 100%;
+            transform-origin: top left;
+            transition: zoom 0.15s ease;
+        }
+        .pane-canvas {
+            min-width: 100%;
+        }
+        .rack-frame {
+            width: 100%;
+            height: 560px;
+            position: relative;
+            overflow: auto;
+            overscroll-behavior: contain;
+            scrollbar-gutter: stable;
+        }
+        .rack-frame.top-frame {
+            height: 560px;
+        }
+        .rack-zoom-stage {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            min-width: 100%;
+            min-height: 100%;
+        }
+        .rack-zoom-target {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            transform-origin: top left;
+            transition: transform 0.15s ease;
+            will-change: transform;
+        }
+        @media (max-width: 767px) {
+            .rack-frame { height: 500px; }
+            .rack-frame.top-frame { height: 500px; }
+        }
+        .legend-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px 20px;
+            align-items: center;
+        }
+        .legend-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+        .pane-title-row {
+            width: 100%;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            overflow: hidden;
+            flex: 0 0 48px;
+        }
+        .pane-title-row > span {
+            white-space: nowrap;
+            flex: 0 0 auto;
+        }
+        .pane-title-row > div {
+            flex: 0 0 auto;
+        }
+        .pane-zoom-label {
+            width: 48px;
+            text-align: center;
+            color: #67e8f9;
+            font-size: 11px;
+            font-family: monospace;
+        }
+        .zoom-button {
+            min-width: 34px;
+            height: 32px;
+            border: 1px solid rgba(255,255,255,.12);
+            background: rgba(255,255,255,.06);
+            color: #e2e8f0;
+            border-radius: 8px;
+            transition: .15s ease;
+        }
+        .zoom-button:hover {
+            border-color: rgba(34,211,238,.55);
+            color: #67e8f9;
+            background: rgba(34,211,238,.10);
+        }
+        .toggle-card:has(input:checked) {
+            border-color: rgba(34, 211, 238, 0.40);
+            background: rgba(34, 211, 238, 0.07);
+        }
+        .infra-card {
+            display: flex;
+            align-items: center;
+            min-height: 44px;
+            height: auto;
+        }
+        .infra-fixed-card {
+            min-height: 108px;
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .rack-status-ticker {
+            width: min(520px, 100%);
+            overflow: hidden;
+            white-space: nowrap;
+        }
+        .rack-status-track {
+            display: inline-block;
+            min-width: 100%;
+            padding-left: 100%;
+            animation: rackTicker 28s linear infinite;
+        }
+        .rack-status-track:hover {
+            animation-play-state: paused;
+        }
+        @keyframes rackTicker {
+            from { transform: translateX(0); }
+            to { transform: translateX(-100%); }
+        }
+        .example-image {
+            width: 100%;
+            height: auto;
+            display: block;
+            background: #fff;
+            border-radius: 12px;
+        }
+        details summary::-webkit-details-marker { display: none; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 min-h-screen p-4 md:p-8 text-gray-100">
+
+<div class="app-shell space-y-8">
+    <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-900/40 p-6 rounded-2xl border border-white/5 backdrop-blur">
+        <div>
+            <div class="flex items-center gap-3">
+                <svg width="40" height="40" viewBox="0 0 72 64" aria-label="Tape measure" role="img" class="shrink-0 drop-shadow-[0_0_12px_rgba(250,204,21,0.28)]">
+                    <!-- Tape-measure housing -->
+                    <rect x="5" y="10" width="42" height="42" rx="12" fill="#facc15" stroke="#fde68a" stroke-width="2.5"></rect>
+                    <path d="M9 38c7 7 22 10 34 5v5c-11 7-29 5-34-2z" fill="#eab308" opacity="0.75"></path>
+                    <!-- Reel -->
+                    <circle cx="26" cy="30" r="10" fill="#0f172a"></circle>
+                    <circle cx="26" cy="30" r="4.5" fill="#67e8f9"></circle>
+                    <!-- Extended measuring tape -->
+                    <path d="M42 29h22v13H42z" fill="#f8fafc" stroke="#e2e8f0" stroke-width="2"></path>
+                    <path d="M47 29v6M52 29v4M57 29v6M62 29v4" stroke="#0f172a" stroke-width="2" stroke-linecap="round"></path>
+                    <!-- Metal hook -->
+                    <path d="M64 28v15h5" fill="none" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
+                <div class="flex items-end gap-2 flex-wrap">
+                    <h1 class="text-3xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-400">
+                        Rack Calculator
+                    </h1>
+                    <span class="text-sm md:text-base text-red-400 font-medium tracking-normal select-none">by Pao</span>
+                </div>
+            </div>
+        </div>
+        <div class="rack-status-ticker text-xs bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 px-3 py-1.5 rounded-full font-mono">
+            <div id="rackStatusTicker" class="rack-status-track">Current Rack Size: --U - ---W x ---D x ---H MM • Guest SW: 0 • Security SW: 0 • BOH SW: 0 • Patch Panel: 0 • Cable Mgmt: 0 • FDU: 0 • Gateway: 0U • Firewall: 0U • NVR: 0U • UPS: 0U</div>
+        </div>
+    </header>
+
+    <main class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <section class="lg:col-span-4 space-y-6">
+            <div class="glass-panel rounded-2xl p-6 shadow-2xl space-y-6">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-white/10 pb-4 gap-2">
+                    <h2 class="text-lg font-semibold text-cyan-300">1. กำหนดโครงสร้างระบบ</h2>
+                    <label class="flex items-center cursor-pointer group">
+                        <div class="relative">
+                            <input type="checkbox" id="syncSwitches" class="sr-only" checked onchange="toggleSync()">
+                            <div class="block glass-input glass-toggle w-9 h-5 rounded-full"></div>
+                            <div class="dot absolute left-0.5 top-0.5 bg-gray-400 w-4 h-4 rounded-full transition transform duration-300"></div>
+                        </div>
+                        <span class="ml-2 block text-xs text-gray-400 group-hover:text-white transition">ใช้พอร์ตขนาดเท่ากัน</span>
+                    </label>
+                </div>
+
+                <div id="masterConfigContainer" class="bg-white/5 p-3 rounded-xl border border-white/5">
+                    <label class="block text-xs font-medium text-gray-400 mb-1.5">ขนาดสวิตช์หลัก (Master Port Size)</label>
+                    <div class="select-wrap">
+                        <select id="masterSwitchSize" class="glass-input w-full text-sm rounded-lg p-2.5 pr-9 appearance-none" onchange="syncMasterSize(); calculateRack()">
+                            <option value="8">8-Port (ใช้งานจริง 6 / สำรอง 2 Uplink)</option>
+                            <option value="16">16-Port (ใช้งานจริง 14 / สำรอง 2 Uplink)</option>
+                            <option value="24" selected>24-Port (ใช้งานจริง 22 / สำรอง 2 Uplink)</option>
+                            <option value="48">48-Port (ใช้งานจริง 46 / สำรอง 2 Uplink)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Physical Segregation</h3>
+
+                    <div class="p-3.5 rounded-xl bg-slate-900/60 border border-white/5 space-y-3">
+                        <div class="flex justify-between items-center gap-3">
+                            <span class="text-sm font-medium text-purple-300">Guest Network</span>
+                            <span class="text-xs text-gray-400 font-mono text-right" id="badgeGuest">0 Switch</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <label>
+                                <span class="text-[10px] text-gray-400 block mb-1">จำนวนจุดปลายทาง</span>
+                                <input type="number" id="devGuest" value="30" min="0" class="glass-input w-full text-sm rounded-lg p-2">
+                            </label>
+                            <label>
+                                <span class="text-[10px] text-gray-400 block mb-1">ขนาด Switch</span>
+                                <div class="select-wrap">
+                                    <select id="switchGuest" class="glass-input w-full text-sm rounded-lg p-2 pr-8 appearance-none" disabled>
+                                        <option value="8">8-Port</option><option value="16">16-Port</option><option value="24" selected>24-Port</option><option value="48">48-Port</option>
+                                    </select>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="p-3.5 rounded-xl bg-slate-900/60 border border-white/5 space-y-3">
+                        <div class="flex justify-between items-center gap-3">
+                            <span class="text-sm font-medium text-amber-300">Security</span>
+                            <span class="text-xs text-gray-400 font-mono text-right" id="badgeSecurity">0 Switch</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <label>
+                                <span class="text-[10px] text-gray-400 block mb-1">จำนวนกล้อง/อุปกรณ์</span>
+                                <input type="number" id="devSecurity" value="0" min="0" class="glass-input w-full text-sm rounded-lg p-2">
+                            </label>
+                            <label>
+                                <span class="text-[10px] text-gray-400 block mb-1">ขนาด Switch</span>
+                                <div class="select-wrap">
+                                    <select id="switchSecurity" class="glass-input w-full text-sm rounded-lg p-2 pr-8 appearance-none" disabled>
+                                        <option value="8">8-Port</option><option value="16">16-Port</option><option value="24" selected>24-Port</option><option value="48">48-Port</option>
+                                    </select>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="p-3.5 rounded-xl bg-slate-900/60 border border-white/5 space-y-3">
+                        <div class="flex justify-between items-center gap-3">
+                            <span class="text-sm font-medium text-emerald-300">BOH (Back of House)</span>
+                            <span class="text-xs text-gray-400 font-mono text-right" id="badgeBOH">0 Switch</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <label>
+                                <span class="text-[10px] text-gray-400 block mb-1">จำนวนจุดใช้งานออฟฟิศ</span>
+                                <input type="number" id="devBOH" value="5" min="0" class="glass-input w-full text-sm rounded-lg p-2">
+                            </label>
+                            <label>
+                                <span class="text-[10px] text-gray-400 block mb-1">ขนาด Switch</span>
+                                <div class="select-wrap">
+                                    <select id="switchBOH" class="glass-input w-full text-sm rounded-lg p-2 pr-8 appearance-none" disabled>
+                                        <option value="8">8-Port</option><option value="16">16-Port</option><option value="24" selected>24-Port</option><option value="48">48-Port</option>
+                                    </select>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="border-t border-white/10 pt-4 space-y-3">
+                    <div>
+                        <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Core Infrastructure / Reserved Space</h3>
+                        <p class="text-[11px] text-gray-500 mt-1">Enable these options to reserve actual rack space and include it in the U calculation.</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs text-gray-400 font-mono">
+                        <label id="fduCard" class="toggle-card infra-card sm:col-span-2 bg-black/20 px-3 py-2 rounded-xl border border-white/5 cursor-pointer group gap-3">
+                            <div class="relative shrink-0">
+                                <input type="checkbox" id="hasFDU" class="sr-only" checked onchange="toggleFDUState(); calculateRack()">
+                                <div class="block glass-input glass-toggle w-9 h-5 rounded-full border border-cyan-400/40"></div>
+                                <div class="dot absolute left-0.5 top-0.5 bg-gray-300 w-4 h-4 rounded-full shadow-[0_0_10px_rgba(34,211,238,0.18)] transition transform duration-300"></div>
+                            </div>
+                            <span class="text-sm text-gray-300 font-medium">Fiber Distribution Unit (FDU)</span>
+                            <input type="number" id="fduCount" value="1" min="1" class="glass-input w-16 text-xs rounded p-1.5 font-mono ml-auto" oninput="calculateRack()">
+                        </label>
+
+                        <label class="toggle-card infra-card bg-black/20 px-3 py-2 rounded-xl border border-white/5 cursor-pointer group gap-3">
+                            <div class="relative shrink-0">
+                                <input type="checkbox" id="hasNVR" class="sr-only" onchange="calculateRack()">
+                                <div class="block glass-input glass-toggle w-9 h-5 rounded-full"></div>
+                                <div class="dot absolute left-0.5 top-0.5 bg-gray-400 w-4 h-4 rounded-full transition transform duration-300"></div>
+                            </div>
+                            <div class="min-w-0 leading-tight">
+                                <span class="block text-sm text-gray-300 font-medium">NVR</span>
+                                <span class="block text-[10px] text-amber-400 mt-1">2U · 800 mm</span>
+                            </div>
+                        </label>
+
+                        <label class="toggle-card infra-card bg-black/20 px-3 py-2 rounded-xl border border-white/5 cursor-pointer group gap-3">
+                            <div class="relative shrink-0">
+                                <input type="checkbox" id="hasGateway" class="sr-only" onchange="calculateRack()">
+                                <div class="block glass-input glass-toggle w-9 h-5 rounded-full"></div>
+                                <div class="dot absolute left-0.5 top-0.5 bg-gray-400 w-4 h-4 rounded-full transition transform duration-300"></div>
+                            </div>
+                            <div class="min-w-0 leading-tight">
+                                <span class="block text-sm text-gray-300 font-medium">Gateway</span>
+                                <span class="block text-[10px] text-cyan-400 mt-1">1U</span>
+                            </div>
+                        </label>
+
+                        <label class="toggle-card infra-card bg-black/20 px-3 py-2 rounded-xl border border-white/5 cursor-pointer group gap-3">
+                            <div class="relative shrink-0">
+                                <input type="checkbox" id="hasFirewall" class="sr-only" onchange="calculateRack()">
+                                <div class="block glass-input glass-toggle w-9 h-5 rounded-full"></div>
+                                <div class="dot absolute left-0.5 top-0.5 bg-gray-400 w-4 h-4 rounded-full transition transform duration-300"></div>
+                            </div>
+                            <div class="min-w-0 leading-tight">
+                                <span class="block text-sm text-gray-300 font-medium">Firewall</span>
+                                <span class="block text-[10px] text-orange-400 mt-1">1U · 800 mm</span>
+                            </div>
+                        </label>
+
+                        <label class="toggle-card infra-card bg-black/20 px-3 py-2 rounded-xl border border-white/5 cursor-pointer group gap-3">
+                            <div class="relative shrink-0">
+                                <input type="checkbox" id="hasUPS" class="sr-only" checked onchange="calculateRack()">
+                                <div class="block glass-input glass-toggle w-9 h-5 rounded-full"></div>
+                                <div class="dot absolute left-0.5 top-0.5 bg-gray-400 w-4 h-4 rounded-full transition transform duration-300"></div>
+                            </div>
+                            <div class="min-w-0 leading-tight">
+                                <span class="block text-sm text-gray-300 font-medium">UPS</span>
+                                <span class="block text-[10px] text-rose-300 mt-1">5U · Fixed Bottom</span>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-2 text-xs text-gray-400 font-mono">
+                        <div class="bg-black/20 p-2 rounded border border-white/5">✓ Rack PDU (Rear Mounted / No Front U Space)</div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <section class="lg:col-span-8 space-y-6 flex flex-col min-w-0">
+            <div class="bg-gradient-to-r from-cyan-600/30 to-blue-600/30 backdrop-blur rounded-2xl p-5 border border-cyan-500/30 flex flex-col sm:flex-row justify-between sm:items-center gap-4 shadow-lg">
+                <div>
+                    <span class="block text-[11px] uppercase tracking-widest text-cyan-300 font-semibold">Recommended Rack Size</span>
+                    <div class="text-3xl font-extrabold tracking-wide mt-1 text-white" id="mainRackResult">--U - ---W x ---D x ---H MM</div>
+                </div>
+                <div class="sm:text-right">
+                    <span class="block text-[10px] text-gray-400">Standard Cabinet Width</span>
+                    <span class="text-lg font-bold font-mono text-indigo-300 block">600 MM</span>
+                </div>
+            </div>
+
+            <div class="glass-panel rounded-2xl p-4 md:p-6 shadow-2xl flex-1 flex flex-col min-w-0">
+                <div class="flex flex-col xl:flex-row xl:items-center justify-between border-b border-white/10 pb-3 mb-4 gap-3">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-200">Rack Layout</h3>
+                            <p class="text-[10px] text-gray-500 mt-0.5">FDU at the top → Patch Panel / Cable Management / Switch → Selected Firewall / Gateway → Empty Space → UPS Reserved 5U at the bottom</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch min-w-0">
+                    <div class="md:col-span-6 flex flex-col items-center min-w-0">
+                        <div class="pane-title-row">
+                            <span class="text-xs font-bold text-cyan-400 uppercase tracking-wider font-mono">[ Front View ]</span>
+                            <div class="flex items-center gap-2">
+                                <button type="button" class="zoom-button" onclick="changePaneZoom('front', -0.1)" aria-label="Zoom out front">−</button>
+                                <span id="frontZoomValue" class="pane-zoom-label">100%</span>
+                                <button type="button" class="zoom-button" onclick="changePaneZoom('front', 0.1)" aria-label="Zoom in front">＋</button>
+                                <button type="button" class="zoom-button px-3 text-xs" onclick="resetPaneZoom('front')">Reset</button>
+                            </div>
+                        </div>
+                        <div id="frontViewport" class="rack-frame blueprint-grid border border-cyan-500/30 rounded-xl w-full">
+                            <div id="frontCanvas" class="pane-canvas">
+                                <div class="rack-zoom-stage">
+                                    <div id="frontZoomTarget" class="rack-zoom-target">
+                                        <div id="frontViewSvgWrapper" class="w-[230px]"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="w-full bg-black/30 rounded-xl border border-white/5 p-4 mt-3 text-[11px] text-gray-300">
+                            <h3 class="text-xs font-semibold text-gray-300 uppercase tracking-wider border-b border-white/5 pb-2 mb-3">Hardware Space Summary</h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+                                <div class="flex justify-between gap-4"><span class="text-gray-400">FDU:</span><span id="sumFDU" class="font-medium text-sky-300">4U</span></div>
+                                <div class="flex justify-between gap-4 items-start"><span class="text-gray-400">Switch:</span><div class="text-right"><div id="sumSwitches" class="font-medium">Total 0</div><div id="sumSwitchesDetail" class="text-[11px] text-gray-400 mt-0.5">Guest 0 • Security 0 • BOH 0</div></div></div>
+                                <div class="flex justify-between gap-4"><span class="text-gray-400">Patch Panel (1U):</span><span id="sumPatch" class="font-medium">0 แผง</span></div>
+                                <div class="flex justify-between gap-4"><span class="text-gray-400">Cable Management (1U):</span><span id="sumCable" class="font-medium">0 ราง</span></div>
+                                <div class="flex justify-between gap-4"><span class="text-gray-400">Gateway Reserved:</span><span id="sumGateway" class="font-medium">0U</span></div>
+                                <div class="flex justify-between gap-4"><span class="text-gray-400">Firewall Reserved:</span><span id="sumFirewall" class="font-medium">0U</span></div>
+                                <div class="flex justify-between gap-4"><span class="text-gray-400">NVR:</span><span id="sumNVR" class="font-medium">0U</span></div>
+                                <div class="flex justify-between gap-4"><span class="text-gray-400">UPS:</span><span id="sumUPS" class="font-medium text-red-300 text-right">5U Reserved · UPS 2,000VA</span></div>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 border-t border-white/10 pt-3 mt-3">
+                                <div class="flex justify-between gap-4 font-semibold text-sm"><span>Net Used Space:</span><span id="sumTotalU" class="text-white">0U</span></div>
+                                <div class="flex justify-between gap-4 text-gray-400"><span>Including Expansion & Ventilation (+30%):</span><span id="sumBufferU" class="font-mono text-right">0U</span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="md:col-span-6 flex flex-col items-center min-w-0">
+                        <div class="pane-title-row">
+                            <span class="text-xs font-bold text-purple-400 uppercase tracking-wider font-mono">[ Top View ]</span>
+                            <div class="flex items-center gap-2">
+                                <button type="button" class="zoom-button" onclick="changePaneZoom('top', -0.1)" aria-label="Zoom out top">−</button>
+                                <span id="topZoomValue" class="pane-zoom-label">160%</span>
+                                <button type="button" class="zoom-button" onclick="changePaneZoom('top', 0.1)" aria-label="Zoom in top">＋</button>
+                                <button type="button" class="zoom-button px-3 text-xs" onclick="resetPaneZoom('top')">Reset</button>
+                            </div>
+                        </div>
+                        <div id="topViewport" class="rack-frame top-frame blueprint-grid border border-purple-500/30 rounded-xl w-full mb-3">
+                            <div id="topCanvas" class="pane-canvas">
+                                <div class="rack-zoom-stage">
+                                    <div id="topZoomTarget" class="rack-zoom-target">
+                                        <div id="topViewSvgWrapper" class="w-[340px]"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="topClearanceSummary" class="w-full bg-black/30 p-3 rounded-xl border border-white/5 text-[11px] text-gray-300 mb-4"></div>
+                    </div>
+
+                </div>
+            </div>
+
+            
+        </section>
+    </main>
+    <section class="glass-panel rounded-2xl p-4 shadow-xl">
+        <div class="font-semibold text-gray-300 text-xs border-b border-white/5 pb-2 mb-3">Legend</div>
+        <div class="legend-bar text-[11px] text-gray-400">
+            <div class="legend-chip"><span class="w-2.5 h-2.5 bg-sky-500 rounded"></span>Fiber Distribution Unit</div>
+            <div class="legend-chip"><span class="w-2.5 h-2.5 bg-purple-500 rounded"></span>Guest Network</div>
+            <div class="legend-chip"><span class="w-2.5 h-2.5 bg-amber-500 rounded"></span>Security Network</div>
+            <div class="legend-chip"><span class="w-2.5 h-2.5 bg-emerald-500 rounded"></span>BOH Network</div>
+            <div class="legend-chip"><span class="w-2.5 h-2.5 bg-orange-500 rounded"></span>Firewall / Gateway</div>
+            <div class="legend-chip"><span class="w-2.5 h-2.5 bg-blue-600 rounded"></span>NVR</div>
+            <div class="legend-chip"><span class="w-2.5 h-2.5 bg-red-500 rounded"></span>UPS (Bottom)</div>
+            <div class="legend-chip"><span class="w-2.5 h-2.5 border border-dashed border-cyan-400/50 rounded"></span>Empty Space / Expansion</div>
+        </div>
+    </section>
+</div>
+
+<script>
+    const standardRackSizes = [6, 9, 12, 15, 18, 22, 27, 36, 42];
+    const U_HEIGHT_MM = 44.45;
+    const defaultPaneZooms = { front: 1, top: 1.6 };
+    const paneZooms = { ...defaultPaneZooms };
+
+    function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
+
+    function syncMasterSize() {
+        if (!document.getElementById('syncSwitches').checked) return;
+        const value = document.getElementById('masterSwitchSize').value;
+        ['switchGuest', 'switchSecurity', 'switchBOH'].forEach(id => {
+            document.getElementById(id).value = value;
+        });
+    }
+
+    function toggleSync() {
+        const isSynced = document.getElementById('syncSwitches').checked;
+        const masterSelect = document.getElementById('masterSwitchSize');
+        const zoneSelects = ['switchGuest', 'switchSecurity', 'switchBOH'];
+
+        masterSelect.disabled = !isSynced;
+        document.getElementById('masterConfigContainer').style.opacity = isSynced ? '1' : '0.55';
+        zoneSelects.forEach(id => { document.getElementById(id).disabled = isSynced; });
+        if (isSynced) syncMasterSize();
+        calculateRack();
+    }
+
+    function getSwitchCount(deviceCount, switchSize) {
+        const usablePorts = Math.max(1, switchSize - 2);
+        return deviceCount > 0 ? Math.ceil(deviceCount / usablePorts) : 0;
+    }
+
+    function toggleFDUState() {
+        const enabled = document.getElementById('hasFDU').checked;
+        const input = document.getElementById('fduCount');
+        const card = document.getElementById('fduCard');
+        if (input) input.disabled = !enabled;
+        if (card) card.classList.toggle('opacity-60', !enabled);
+    }
+
+    function calculateRack() {
+        const isSynced = document.getElementById('syncSwitches').checked;
+        const masterSize = Number(document.getElementById('masterSwitchSize').value);
+
+        const devGuest = Math.max(0, Number(document.getElementById('devGuest').value) || 0);
+        const devSecurity = Math.max(0, Number(document.getElementById('devSecurity').value) || 0);
+        const devBOH = Math.max(0, Number(document.getElementById('devBOH').value) || 0);
+
+        const sizeGuest = isSynced ? masterSize : Number(document.getElementById('switchGuest').value);
+        const sizeSecurity = isSynced ? masterSize : Number(document.getElementById('switchSecurity').value);
+        const sizeBOH = isSynced ? masterSize : Number(document.getElementById('switchBOH').value);
+
+        const swGuestCount = getSwitchCount(devGuest, sizeGuest);
+        const swSecurityCount = getSwitchCount(devSecurity, sizeSecurity);
+        const swBOHCount = getSwitchCount(devBOH, sizeBOH);
+
+        document.getElementById('badgeGuest').textContent = `${swGuestCount} Switch × ${sizeGuest}-Port`;
+        document.getElementById('badgeSecurity').textContent = `${swSecurityCount} Switch × ${sizeSecurity}-Port`;
+        document.getElementById('badgeBOH').textContent = `${swBOHCount} Switch × ${sizeBOH}-Port`;
+
+        const totalSwitches = swGuestCount + swSecurityCount + swBOHCount;
+        const totalPatchPanels = totalSwitches;
+        const totalCableMgmt = totalSwitches;
+
+        const hasGateway = document.getElementById('hasGateway').checked;
+        const hasFirewall = document.getElementById('hasFirewall').checked;
+        const hasNVR = document.getElementById('hasNVR').checked;
+        const hasUPS = document.getElementById('hasUPS').checked;
+        const hasFDU = document.getElementById('hasFDU').checked;
+
+        const fduUnitU = 1;
+        const fduCount = hasFDU ? Math.max(1, Number(document.getElementById('fduCount').value) || 1) : 0;
+        const fduTopClearU = hasFDU ? 1 : 0;
+        const fduBottomClearU = hasFDU ? 2 : 0;
+        const fduBodyU = fduCount * fduUnitU;
+        const fduU = fduTopClearU + fduBodyU + fduBottomClearU;
+        const gatewayU = hasGateway ? 1 : 0;
+        const firewallU = hasFirewall ? 1 : 0;
+        const nvrU = hasNVR ? 2 : 0;
+        const pduU = 0; // PDU ติดตั้งแนวตั้งด้านหลัง ไม่กินพื้นที่ Front U
+        const upsU = hasUPS ? 5 : 0; // UPS reserved only when enabled
+
+        const netUsedU = fduU + totalSwitches + totalPatchPanels + totalCableMgmt + gatewayU + firewallU + nvrU + upsU;
+        const bufferU = Math.ceil(netUsedU * 1.30);
+
+        let finalRackU = standardRackSizes.find(size => size >= bufferU) || bufferU;
+        const customRackAlert = !standardRackSizes.includes(finalRackU);
+
+        const widthDimension = 600;
+        const depthDimension = (hasNVR || hasFirewall) ? 800 : 600;
+        const germanyRackHeights = {
+            6: 320,
+            9: 450,
+            12: 590,
+            15: 850,
+            27: 1390,
+            36: 1790,
+            42: 2050
+        };
+        const heightDimensionMM = germanyRackHeights[finalRackU] || Math.round((finalRackU * U_HEIGHT_MM) + 120);
+
+        document.getElementById('sumFDU').textContent = fduCount > 0 ? `${fduU}U` : '0U';
+        document.getElementById('sumSwitches').textContent = `Total ${totalSwitches}`;
+        document.getElementById('sumSwitchesDetail').textContent = `Guest ${swGuestCount} • Security ${swSecurityCount} • BOH ${swBOHCount}`;
+        document.getElementById('sumPatch').textContent = `${totalPatchPanels} แผง`;
+        document.getElementById('sumCable').textContent = `${totalCableMgmt} ราง`;
+        document.getElementById('sumGateway').textContent = `${gatewayU}U`;
+        document.getElementById('sumFirewall').textContent = `${firewallU}U`;
+        document.getElementById('sumNVR').textContent = `${nvrU}U`;
+        document.getElementById('sumUPS').textContent = hasUPS ? '5U Reserved · UPS 2,000VA' : '0U';
+        document.getElementById('sumTotalU').textContent = `${netUsedU}U`;
+        document.getElementById('sumBufferU').textContent = `${bufferU}U`;
+
+        const rackSizeLabel = `${finalRackU}U - ${widthDimension}W x ${depthDimension}D x ${heightDimensionMM}H MM`;
+        const gatewayLabel = hasGateway ? '1U' : '0U';
+        const firewallLabel = hasFirewall ? '1U' : '0U';
+        const nvrLabel = hasNVR ? '2U' : '0U';
+        const upsLabel = hasUPS ? '5U' : '0U';
+        const rackStatusText = `Current Rack Size: ${rackSizeLabel} • Guest SW: ${swGuestCount} • Security SW: ${swSecurityCount} • BOH SW: ${swBOHCount} • Patch Panel: ${totalPatchPanels} • Cable Mgmt: ${totalCableMgmt} • FDU: ${fduCount} • Gateway: ${gatewayLabel} • Firewall: ${firewallLabel} • NVR: ${nvrLabel} • UPS: ${upsLabel}`;
+        document.getElementById('mainRackResult').textContent = rackSizeLabel;
+        document.getElementById('rackStatusTicker').textContent = rackStatusText;
+
+        renderBlueprints(finalRackU, widthDimension, depthDimension, heightDimensionMM, {
+            swGuestCount, swSecurityCount, swBOHCount,
+            hasGateway, hasFirewall, hasNVR, hasUPS, hasFDU,
+            fduCount, fduUnitU, fduBodyU, fduTopClearU, fduBottomClearU, fduU,
+            gatewayU, firewallU, nvrU, pduU, upsU
+        });
+    }
+
+    function pushMultiU(target, type, label, color, units) {
+        for (let i = 0; i < units; i++) {
+            target.push({
+                type,
+                label: i === Math.floor(units / 2) ? label : '',
+                color
+            });
+        }
+    }
+
+    function addNetworkGroup(target, count, zoneName, palette) {
+        for (let i = 0; i < count; i++) {
+            const suffix = count > 1 ? ` ${i + 1}` : '';
+            target.push({ type: 'PP', label: `Patch Panel 24 Port${suffix}`, color: palette.patch });
+            target.push({ type: 'CM', label: 'Cable Management', color: palette.cable });
+            target.push({ type: 'SW', label: `${zoneName} Switch${suffix}`, color: palette.switch });
+        }
+    }
+
+    function renderBlueprints(rackU, width, depth, heightMM, eq) {
+        /* ลำดับตามแบบอ้างอิงจากบนลงล่าง */
+        const topItems = [];
+
+        // 1) Fiber Distribution Unit at the top with fixed clear space: 1U top, body, 2U bottom
+        if (eq.hasFDU && eq.fduTopClearU > 0) {
+            pushMultiU(topItems, 'FDU_CLEAR_TOP', 'FDU Top Clear 1U', '#0b3b52', eq.fduTopClearU);
+        }
+        for (let i = 0; i < eq.fduCount; i++) {
+            pushMultiU(topItems, 'FDU', eq.fduCount > 1 ? `Fiber Distribution Unit ${i + 1}` : 'Fiber Distribution Unit', '#0ea5e9', eq.fduUnitU);
+        }
+        if (eq.hasFDU && eq.fduBottomClearU > 0) {
+            pushMultiU(topItems, 'FDU_CLEAR_BOTTOM', `FDU Bottom Clear ${eq.fduBottomClearU}U`, '#0b3b52', eq.fduBottomClearU);
+        }
+
+        // 2) อุปกรณ์เครือข่ายเรียงลงมาทีละชุด: Patch Panel → Cable Management → Switch
+        addNetworkGroup(topItems, eq.swGuestCount, 'Guest', { patch:'#6b21a8', cable:'#7e22ce', switch:'#a855f7' });
+        addNetworkGroup(topItems, eq.swSecurityCount, 'Security', { patch:'#92400e', cable:'#b45309', switch:'#f59e0b' });
+        addNetworkGroup(topItems, eq.swBOHCount, 'BOH', { patch:'#065f46', cable:'#047857', switch:'#10b981' });
+
+        // 3) พื้นที่สำรองตามแบบ: Firewall ก่อน Gateway
+        if (eq.hasFirewall) topItems.push({ type:'FIREWALL', label:'Space for Firewall (1U)', color:'#f97316' });
+        if (eq.hasGateway) topItems.push({ type:'GATEWAY', label:'Space for Gateway (1U)', color:'#fb923c' });
+        if (eq.hasNVR) {
+            pushMultiU(topItems, 'NVR', 'NVR (2U)', '#2563eb', 2);
+        }
+        // PDU อยู่ด้านหลังตู้ จึงไม่วาดเป็นอุปกรณ์ Front Rack
+
+        const usedWithoutEmpty = topItems.length + eq.upsU;
+        const emptySpaceCount = Math.max(0, rackU - usedWithoutEmpty);
+        const emptyItems = Array.from({ length: emptySpaceCount }, (_, i) => ({
+            type:'EMPTY',
+            label: i === Math.floor(emptySpaceCount / 2) ? `Empty Space ${emptySpaceCount}U` : '',
+            color:'transparent'
+        }));
+        const upsItems = Array.from({ length: eq.upsU }, (_, i) => ({
+            type:'UPS',
+            label: i === Math.floor(eq.upsU / 2) ? 'UPS 2,000VA / Reserved 5U' : '',
+            color:'#ef4444'
+        }));
+
+        const renderStack = [...topItems, ...emptyItems, ...upsItems];
+
+        const fWidth = 176;
+        const fHeight = Math.max(420, rackU * 18);
+        const cellH = fHeight / rackU;
+        const fDimX = fWidth + 38;
+        let frontSvg = `<svg viewBox="0 0 ${fWidth + 72} ${fHeight + 62}" class="w-full h-auto block" xmlns="http://www.w3.org/2000/svg">`;
+        frontSvg += `<rect x="24" y="20" width="${fWidth}" height="${fHeight}" fill="none" stroke="#22d3ee" stroke-width="2" rx="4"/>`;
+        frontSvg += `<line x1="32" y1="20" x2="32" y2="${fHeight + 20}" stroke="#22d3ee" stroke-width="0.5" stroke-dasharray="2 2"/>`;
+        frontSvg += `<line x1="${fWidth + 16}" y1="20" x2="${fWidth + 16}" y2="${fHeight + 20}" stroke="#22d3ee" stroke-width="0.5" stroke-dasharray="2 2"/>`;
+
+        renderStack.forEach((cell, idx) => {
+            const y = 20 + idx * cellH;
+            if (cell.type === 'EMPTY') {
+                frontSvg += `<rect x="34" y="${y + 1}" width="${fWidth - 20}" height="${Math.max(1, cellH - 2)}" fill="none" stroke="#22d3ee" stroke-opacity="0.13" stroke-dasharray="2 3"/>`;
+                if (cell.label) frontSvg += `<text x="${fWidth/2 + 24}" y="${y + cellH/2 + 3}" fill="#64748b" font-size="6.5" text-anchor="middle" font-family="sans-serif" font-style="italic">${cell.label}</text>`;
+            } else {
+                frontSvg += `<rect x="34" y="${y + 1}" width="${fWidth - 20}" height="${Math.max(1, cellH - 2)}" fill="${cell.color}" fill-opacity="0.30" stroke="${cell.color}" stroke-width="1"/>`;
+                if (cell.label) frontSvg += `<text x="${fWidth/2 + 24}" y="${y + cellH/2 + 2.6}" fill="#ffffff" font-size="6.3" text-anchor="middle" font-family="sans-serif">${cell.label}</text>`;
+            }
+            frontSvg += `<text x="18" y="${y + cellH/2 + 2.5}" fill="#67e8f9" fill-opacity="0.75" font-size="5.3" text-anchor="end" font-family="monospace">${rackU - idx}U</text>`;
+        });
+
+        frontSvg += `<line x1="${fDimX}" y1="20" x2="${fDimX}" y2="${fHeight + 20}" stroke="#22d3ee" stroke-width="1"/>`;
+        frontSvg += `<polygon points="${fDimX},20 ${fDimX-3},25 ${fDimX+3},25" fill="#22d3ee"/>`;
+        frontSvg += `<polygon points="${fDimX},${fHeight+20} ${fDimX-3},${fHeight+15} ${fDimX+3},${fHeight+15}" fill="#22d3ee"/>`;
+        frontSvg += `<text x="${fDimX + 9}" y="${fHeight/2 + 20}" fill="#22d3ee" font-size="7" transform="rotate(90, ${fDimX + 9}, ${fHeight/2 + 20})" text-anchor="middle" font-family="monospace">H: ${heightMM} mm</text>`;
+        frontSvg += `<line x1="24" y1="${fHeight + 31}" x2="${fWidth + 24}" y2="${fHeight + 31}" stroke="#22d3ee" stroke-width="1"/>`;
+        frontSvg += `<polygon points="24,${fHeight+31} 29,${fHeight+28} 29,${fHeight+34}" fill="#22d3ee"/>`;
+        frontSvg += `<polygon points="${fWidth+24},${fHeight+31} ${fWidth+19},${fHeight+28} ${fWidth+19},${fHeight+34}" fill="#22d3ee"/>`;
+        frontSvg += `<text x="${fWidth/2 + 24}" y="${fHeight + 45}" fill="#22d3ee" font-size="7" text-anchor="middle" font-family="monospace">W: ${width} mm</text>`;
+        frontSvg += `</svg>`;
+        document.getElementById('frontViewSvgWrapper').innerHTML = frontSvg;
+
+        const clearSide = 600;
+        // Front/Rear clearance only needs to match the rack door opening width.
+        const clearFront = width;
+        const clearRear = width;
+        const roomWidth = width + (clearSide * 2);
+        const roomDepth = depth + clearFront + clearRear;
+        const roomAreaSqM = ((roomWidth * roomDepth) / 1000000).toFixed(2);
+
+        const scalePlan = 0.12;
+        const rackPlanW = Math.round(width * scalePlan);
+        const rackPlanD = Math.round(depth * scalePlan);
+        const sideClearPx = Math.round(clearSide * scalePlan);
+        const frontClearPx = Math.round(clearFront * scalePlan);
+        const rearClearPx = Math.round(clearRear * scalePlan);
+        const roomPlanW = rackPlanW + (sideClearPx * 2);
+        const roomPlanD = rackPlanD + frontClearPx + rearClearPx;
+        const padX = 56;
+        const padY = 40;
+        const rackX = padX + sideClearPx;
+        const rackY = padY + frontClearPx;
+        const viewW = roomPlanW + (padX * 2) + 96;
+        const viewH = roomPlanD + (padY * 2) + 88;
+        const dimBottomY = padY + roomPlanD + 28;
+        const dimRightX = padX + roomPlanW + 28;
+        const rackCenterX = rackX + (rackPlanW / 2);
+        const frontArcY = rackY;
+        const rearArcY = rackY + rackPlanD;
+        const frontDoorY = Math.max(padY + 10, rackY - Math.round(rackPlanW * 0.9));
+        const rearDoorY = Math.min(padY + roomPlanD - 8, rearArcY + Math.round(rackPlanW * 0.9));
+
+        let topSvg = `<svg viewBox="0 0 ${viewW} ${viewH}" class="w-full h-auto block" xmlns="http://www.w3.org/2000/svg">`;
+        topSvg += `<rect x="${padX}" y="${padY}" width="${roomPlanW}" height="${roomPlanD}" fill="rgba(8,47,73,0.12)" stroke="#38bdf8" stroke-opacity="0.32" stroke-width="1.2" stroke-dasharray="6 4" rx="10"/>`;
+        topSvg += `<rect x="${rackX}" y="${rackY}" width="${rackPlanW}" height="${rackPlanD}" fill="rgba(192,132,252,0.08)" stroke="#c084fc" stroke-width="2" rx="6"/>`;
+        topSvg += `<line x1="${rackX}" y1="${rackY}" x2="${rackX + rackPlanW}" y2="${rackY}" stroke="#c084fc" stroke-width="1.2"/>`;
+        topSvg += `<line x1="${rackX}" y1="${rearArcY}" x2="${rackX + rackPlanW}" y2="${rearArcY}" stroke="#c084fc" stroke-width="1.2"/>`;
+        const doorSwing = Math.max(20, rackPlanW);
+        const frontHingeX = rackX + rackPlanW;
+        const frontHingeTopY = rackY - doorSwing;
+        const rearHingeX = rackX;
+        const rearHingeBottomY = rearArcY + doorSwing;
+        topSvg += `<path d="M ${rackX} ${frontArcY} A ${doorSwing} ${doorSwing} 0 0 1 ${frontHingeX} ${frontHingeTopY}" fill="none" stroke="#e9d5ff" stroke-width="1" stroke-dasharray="4 3"/>`;
+        topSvg += `<line x1="${frontHingeX}" y1="${frontHingeTopY}" x2="${frontHingeX}" y2="${frontArcY}" stroke="#e9d5ff" stroke-width="1.2"/>`;
+        topSvg += `<path d="M ${rackX + rackPlanW} ${rearArcY} A ${doorSwing} ${doorSwing} 0 0 1 ${rearHingeX} ${rearHingeBottomY}" fill="none" stroke="#e9d5ff" stroke-width="1" stroke-dasharray="4 3"/>`;
+        topSvg += `<line x1="${rearHingeX}" y1="${rearArcY}" x2="${rearHingeX}" y2="${rearHingeBottomY}" stroke="#e9d5ff" stroke-width="1.2"/>`;
+        topSvg += `<text x="${rackCenterX}" y="${frontDoorY - 8}" fill="#e9d5ff" font-size="8" text-anchor="middle" font-family="sans-serif">Front Door Opening</text>`;
+        topSvg += `<text x="${rackCenterX}" y="${rearDoorY + 14}" fill="#e9d5ff" font-size="8" text-anchor="middle" font-family="sans-serif">Rear Door Opening</text>`;
+
+        topSvg += `<line x1="${padX}" y1="${dimBottomY}" x2="${padX + roomPlanW}" y2="${dimBottomY}" stroke="#38bdf8" stroke-width="1"/>`;
+        topSvg += `<polygon points="${padX},${dimBottomY} ${padX+5},${dimBottomY-3} ${padX+5},${dimBottomY+3}" fill="#38bdf8"/>`;
+        topSvg += `<polygon points="${padX+roomPlanW},${dimBottomY} ${padX+roomPlanW-5},${dimBottomY-3} ${padX+roomPlanW-5},${dimBottomY+3}" fill="#38bdf8"/>`;
+        topSvg += `<text x="${padX + roomPlanW/2}" y="${dimBottomY + 14}" fill="#38bdf8" font-size="8" text-anchor="middle" font-family="monospace">Minimum Room Width: ${roomWidth} mm</text>`;
+
+        topSvg += `<line x1="${dimRightX}" y1="${padY}" x2="${dimRightX}" y2="${padY + roomPlanD}" stroke="#38bdf8" stroke-width="1"/>`;
+        topSvg += `<polygon points="${dimRightX},${padY} ${dimRightX-3},${padY+5} ${dimRightX+3},${padY+5}" fill="#38bdf8"/>`;
+        topSvg += `<polygon points="${dimRightX},${padY+roomPlanD} ${dimRightX-3},${padY+roomPlanD-5} ${dimRightX+3},${padY+roomPlanD-5}" fill="#38bdf8"/>`;
+        topSvg += `<text x="${dimRightX + 10}" y="${padY + roomPlanD/2}" fill="#38bdf8" font-size="8" transform="rotate(90, ${dimRightX + 10}, ${padY + roomPlanD/2})" text-anchor="middle" font-family="monospace">Minimum Room Depth: ${roomDepth} mm</text>`;
+
+        topSvg += `<line x1="${rackX}" y1="${rackY - 16}" x2="${rackX + rackPlanW}" y2="${rackY - 16}" stroke="#c084fc" stroke-width="1"/>`;
+        topSvg += `<polygon points="${rackX},${rackY-16} ${rackX+5},${rackY-19} ${rackX+5},${rackY-13}" fill="#c084fc"/>`;
+        topSvg += `<polygon points="${rackX + rackPlanW},${rackY-16} ${rackX + rackPlanW - 5},${rackY-19} ${rackX + rackPlanW - 5},${rackY-13}" fill="#c084fc"/>`;
+        topSvg += `<text x="${rackCenterX}" y="${rackY - 22}" fill="#c084fc" font-size="8" text-anchor="middle" font-family="monospace">Rack Width: ${width} mm</text>`;
+
+        topSvg += `<line x1="${rackX - 18}" y1="${rackY}" x2="${rackX - 18}" y2="${rearArcY}" stroke="#c084fc" stroke-width="1"/>`;
+        topSvg += `<polygon points="${rackX-18},${rackY} ${rackX-21},${rackY+5} ${rackX-15},${rackY+5}" fill="#c084fc"/>`;
+        topSvg += `<polygon points="${rackX-18},${rearArcY} ${rackX-21},${rearArcY-5} ${rackX-15},${rearArcY-5}" fill="#c084fc"/>`;
+        topSvg += `<text x="${rackX - 28}" y="${rackY + rackPlanD/2}" fill="#c084fc" font-size="8" transform="rotate(90, ${rackX - 28}, ${rackY + rackPlanD/2})" text-anchor="middle" font-family="monospace">Rack Depth: ${depth} mm</text>`;
+
+        topSvg += `<text x="${rackCenterX}" y="${padY + 14}" fill="#93c5fd" font-size="8" text-anchor="middle" font-family="sans-serif">Front Clear: ${clearFront} mm</text>`;
+        topSvg += `<text x="${rackCenterX}" y="${padY + roomPlanD + 26}" fill="#93c5fd" font-size="8" text-anchor="middle" font-family="sans-serif">Rear Clear: ${clearRear} mm</text>`;
+        topSvg += `<text x="${padX + 8}" y="${padY + roomPlanD/2}" fill="#93c5fd" font-size="8" transform="rotate(90, ${padX + 8}, ${padY + roomPlanD/2})" text-anchor="middle" font-family="sans-serif">Side Clear: ${clearSide} mm</text>`;
+        topSvg += `<text x="${padX + roomPlanW - 8}" y="${padY + roomPlanD/2}" fill="#93c5fd" font-size="8" transform="rotate(90, ${padX + roomPlanW - 8}, ${padY + roomPlanD/2})" text-anchor="middle" font-family="sans-serif">Side Clear: ${clearSide} mm</text>`;
+        topSvg += `</svg>`;
+        document.getElementById('topViewSvgWrapper').innerHTML = topSvg;
+        document.getElementById('topClearanceSummary').innerHTML = `
+            <div class="font-semibold text-gray-200 mb-2">Top View Clearance</div>
+            <div class="legend-bar text-[11px]">
+                <div class="legend-chip"><span class="text-cyan-300 font-semibold">Minimum Room Space:</span> ${roomWidth} x ${roomDepth} mm</div>
+                <div class="legend-chip"><span class="text-cyan-300 font-semibold">Rack Size:</span> ${width} x ${depth} mm</div>
+                <div class="legend-chip"><span class="text-cyan-300 font-semibold">Front Clear:</span> ${clearFront} mm</div>
+                <div class="legend-chip"><span class="text-cyan-300 font-semibold">Rear Clear:</span> ${clearRear} mm</div>
+                <div class="legend-chip"><span class="text-cyan-300 font-semibold">Side Clear:</span> ${clearSide} mm each side</div>
+                <div class="legend-chip"><span class="text-cyan-300 font-semibold">Minimum Room Area:</span> ${roomAreaSqM} sq.m.</div>
+            </div>`;
+
+        requestAnimationFrame(() => {
+            ['front', 'top'].forEach(applyPaneZoom);
+        });
+    }
+
+    function applyPaneZoom(pane) {
+        const target = document.getElementById(`${pane}ZoomTarget`);
+        const stage = target?.parentElement;
+        const viewport = document.getElementById(`${pane}Viewport`);
+        const zoomValue = document.getElementById(`${pane}ZoomValue`);
+        if (!target || !stage || !viewport || !zoomValue) return;
+
+        const scale = paneZooms[pane];
+        const padding = 24;
+        const baseWidth = target.offsetWidth;
+        const baseHeight = target.offsetHeight;
+        const scaledWidth = Math.ceil(baseWidth * scale);
+        const scaledHeight = Math.ceil(baseHeight * scale);
+        const stageWidth = Math.max(viewport.clientWidth, scaledWidth + padding);
+        const stageHeight = Math.max(viewport.clientHeight, scaledHeight + padding);
+
+        stage.style.width = `${stageWidth}px`;
+        stage.style.height = `${stageHeight}px`;
+        target.style.left = `${Math.max(12, Math.floor((stageWidth - scaledWidth) / 2))}px`;
+        target.style.top = '12px';
+        target.style.transform = `scale(${scale})`;
+        zoomValue.textContent = `${Math.round(scale * 100)}%`;
+    }
+    function changePaneZoom(pane, delta) {
+        paneZooms[pane] = clamp(Number((paneZooms[pane] + delta).toFixed(2)), 0.6, 2.2);
+        applyPaneZoom(pane);
+    }
+    function resetPaneZoom(pane) {
+        paneZooms[pane] = defaultPaneZooms[pane] ?? 1;
+        applyPaneZoom(pane);
+        const viewport = document.getElementById(`${pane}Viewport`);
+        if (viewport) viewport.scrollTo({ top:0, left:0, behavior:'smooth' });
+    }
+    function bindPaneWheelZoom(pane) {
+        const viewport = document.getElementById(`${pane}Viewport`);
+        if (!viewport) return;
+        viewport.addEventListener('wheel', event => {
+            event.preventDefault();
+            changePaneZoom(pane, event.deltaY < 0 ? 0.1 : -0.1);
+        }, { passive:false });
+    }
+
+    ['devGuest', 'devSecurity', 'devBOH', 'fduCount'].forEach(id => {
+        document.getElementById(id).addEventListener('input', calculateRack);
+    });
+    ['switchGuest', 'switchSecurity', 'switchBOH'].forEach(id => {
+        document.getElementById(id).addEventListener('change', calculateRack);
+    });
+
+
+    toggleSync();
+    toggleFDUState();
+    ['front', 'top'].forEach(pane => {
+        applyPaneZoom(pane);
+        bindPaneWheelZoom(pane);
+    });
+    window.addEventListener('resize', () => {
+        ['front', 'top'].forEach(applyPaneZoom);
+    });
+</script>
+</body>
+</html>
